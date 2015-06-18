@@ -25,4 +25,6 @@ dependencies {
     compile 'com.android.support:appcompat-v7:22.2.0'
     compile 'org.bouncycastle:bcpkix-jdk15on:1.52'
     compile 'io.netty:netty-all:4.0.28.Final'
+//    compile 'io.netty:netty-all:5.0.0.Alpha2'
+
 }

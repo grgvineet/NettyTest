@@ -1,7 +1,7 @@
 package org.kde.nettytest;
 
+import android.app.Activity;
 import android.os.Bundle;
-import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -11,18 +11,173 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.net.InetSocketAddress;
-import java.nio.charset.Charset;
-import java.util.HashMap;
+import java.net.InetAddress;
+
+import javax.net.ssl.SSLEngine;
+
+import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.ChannelPipeline;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.channel.group.ChannelGroup;
+import io.netty.channel.group.DefaultChannelGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.handler.codec.DelimiterBasedFrameDecoder;
+import io.netty.handler.codec.Delimiters;
+import io.netty.handler.codec.string.StringDecoder;
+import io.netty.handler.codec.string.StringEncoder;
+import io.netty.handler.ssl.SslHandler;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
+import io.netty.util.concurrent.GlobalEventExecutor;
 
 
-public class Server extends ActionBarActivity {
+public class Server extends Activity {
 
     boolean binded = false;
 
     Button bind, unbind, send;
     EditText port, textToSend;
     TextView messageReceived;
+
+    ServerThread thread;
+    final static ChannelGroup channels = new DefaultChannelGroup(GlobalEventExecutor.INSTANCE);
+
+    public class ServerHandler extends SimpleChannelInboundHandler<String> {
+
+        @Override
+        public void channelActive(final ChannelHandlerContext ctx) {
+            // Once session is secured, send a greeting and register the channel to the global channel
+            // list so the channel received the messages from others.
+            Log.e("Server", "Channel handler context name :" + ctx.name());
+            ctx.pipeline().get(SslHandler.class).handshakeFuture().addListener(
+                    new GenericFutureListener<Future<Channel>>() {
+                        @Override
+                        public void operationComplete(Future<Channel> future) throws Exception {
+                            ctx.writeAndFlush(
+                                    "Welcome to " + InetAddress.getLocalHost().getHostName() + " secure chat service!\n");
+                            ctx.writeAndFlush(
+                                    "Your session is protected by " +
+                                            ctx.pipeline().get(SslHandler.class).engine().getSession().getCipherSuite() +
+                                            " cipher suite.\n");
+
+                            channels.add(ctx.channel());
+                        }
+                    });
+
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(getApplicationContext(), ctx.channel().remoteAddress().toString(), Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+
+
+        @Override
+        public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+            cause.printStackTrace();
+            ctx.close();
+        }
+
+        @Override
+        protected void channelRead0(final ChannelHandlerContext ctx, final String msg) throws Exception {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    messageReceived.setText(ctx.channel().remoteAddress() + " : " + msg);
+                }
+            });
+
+            // Close the connection if the client has sent 'bye'.
+            if ("bye".equals(msg.toLowerCase())) {
+                ctx.close();
+            }
+        }
+    }
+
+    public class ServerInitializer extends ChannelInitializer<SocketChannel> {
+
+        private final SSLEngine sslEngine;
+
+        public ServerInitializer(SSLEngine sslEngine) {
+            this.sslEngine = sslEngine;
+        }
+
+        @Override
+        public void initChannel(SocketChannel ch) throws Exception {
+            ChannelPipeline pipeline = ch.pipeline();
+
+            // Add SSL handler first to encrypt and decrypt everything.
+            // In this example, we use a bogus certificate in the server side
+            // and accept any invalid certificates in the client side.
+            // You will need something more complicated to identify both
+            // and server in the real world.
+
+//            pipeline.addLast(sslCtx.newHandler(ch.alloc()));
+            pipeline.addLast(new SslHandler(sslEngine));
+
+            // On top of the SSL handler, add the text line codec.
+            pipeline.addLast(new DelimiterBasedFrameDecoder(8192, Delimiters.lineDelimiter()));
+            pipeline.addLast(new StringDecoder());
+            pipeline.addLast(new StringEncoder());
+
+            // and then business logic.
+            pipeline.addLast(new ServerHandler());
+        }
+    }
+
+    public class ServerThread extends Thread{
+
+        int port;
+
+        ServerThread(int port) {
+            this.port = port;
+        }
+
+        @Override
+        public void run(){
+            EventLoopGroup bossGroup = new NioEventLoopGroup(); // (1)
+            EventLoopGroup workerGroup = new NioEventLoopGroup();
+            try {
+                ServerBootstrap b = new ServerBootstrap(); // (2)
+                b.group(bossGroup, workerGroup)
+                        .channel(NioServerSocketChannel.class) // (3)
+                        .childHandler(new ChannelInitializer<SocketChannel>() { // (4)
+                            @Override
+                            public void initChannel(SocketChannel ch) throws Exception {
+                                final SSLEngine sslEngine = MySslContext.getSslContext(getApplicationContext(), false).createSSLEngine();
+
+                                sslEngine.setUseClientMode(false);
+                                ch.pipeline().addLast(new ServerInitializer(sslEngine));
+                            }
+                        })
+                        .option(ChannelOption.SO_BACKLOG, 128)          // (5)
+                        .childOption(ChannelOption.SO_KEEPALIVE, true); // (6)
+
+                // Bind and start to accept incoming connections.
+                ChannelFuture f = b.bind(port).sync(); // (7)
+
+                // Wait until the server socket is closed.
+                // In this example, this does not happen, but you can do that to gracefully
+                // shut down your server.
+                f.channel().closeFuture().sync();
+            }catch (Exception e){
+                e.printStackTrace();
+            } finally {
+                workerGroup.shutdownGracefully();
+                bossGroup.shutdownGracefully();
+            }
+        }
+    }
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,7 +203,8 @@ public class Server extends ActionBarActivity {
                 try{
                     if (!binded) {
 
-
+                        thread = new ServerThread(Integer.parseInt(port.getText().toString()));
+                        thread.start();
                         bind.setEnabled(false);
                         unbind.setEnabled(true);
                         send.setEnabled(true);
@@ -66,6 +222,7 @@ public class Server extends ActionBarActivity {
             public void onClick(View view) {
                 if (binded) {
 
+                    thread.interrupt();
                     bind.setEnabled(true);
                     unbind.setEnabled(false);
                     send.setEnabled(false);
@@ -77,6 +234,14 @@ public class Server extends ActionBarActivity {
         send.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        for (Channel c : channels){
+                            c.writeAndFlush(textToSend.getText().toString() + "\r\n");
+                        }
+                    }
+                }).start();
             }
         });
 
