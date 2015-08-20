@@ -13,22 +13,18 @@ import android.widget.Toast;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.DelimiterBasedFrameDecoder;
 import io.netty.handler.codec.Delimiters;
-import io.netty.handler.codec.LineBasedFrameDecoder;
 import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
 import io.netty.handler.ssl.JdkSslClientContext;
-import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 
 
@@ -83,6 +79,9 @@ public class Client extends Activity {
                 @Override
                 public void run() {
                     Toast.makeText(getApplicationContext(), ctx.channel().remoteAddress().toString(),Toast.LENGTH_SHORT).show();
+                    connect.setEnabled(false);
+                    disconnect.setEnabled(true);
+                    send.setEnabled(true);
                 }
             });
         }
@@ -96,6 +95,9 @@ public class Client extends Activity {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
+                    connect.setEnabled(true);
+                    disconnect.setEnabled(false);
+                    send.setEnabled(false);
                     Toast.makeText(getApplicationContext(), "Session destroyed", Toast.LENGTH_SHORT).show();
                 }
             });
@@ -176,12 +178,12 @@ public class Client extends Activity {
                         + remoteAddress3.getText().toString() + "."
                         + remoteAddress4.getText().toString();
 
-                clientThread = new ClientThread(host, Integer.parseInt(port.getText().toString()));
-                clientThread.start();
-                connect.setEnabled(false);
-                disconnect.setEnabled(true);
-                send.setEnabled(true);
-
+                try {
+                    clientThread = new ClientThread(host, Integer.parseInt(port.getText().toString()));
+                    clientThread.start();
+                } catch (Exception e) {
+                    Toast.makeText(getApplicationContext(), "Unable to connect", Toast.LENGTH_LONG);
+                }
 
             }
         });
@@ -190,10 +192,6 @@ public class Client extends Activity {
             @Override
             public void onClick(View view) {
                 clientThread.interrupt();
-                disconnect.setEnabled(false);
-                connect.setEnabled(true);
-                send.setEnabled(false);
-
 
             }
         });
