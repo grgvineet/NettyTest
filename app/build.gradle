@@ -17,14 +17,28 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    packagingOptions {
+        // Exclude file to avoid
+        // Error: Duplicate files during packaging of APK
+        exclude 'META-INF/DEPENDENCIES'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/LICENSE.txt'
+        exclude 'META-INF/license.txt'
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/NOTICE.txt'
+        exclude 'META-INF/notice.txt'
+        exclude 'META-INF/ASL2.0'
+        exclude 'META-INF/services/javax.annotation.processing.Processor'
+    }
 }
 
 dependencies {
-    compile fileTree(dir: 'libs', include: ['*.jar'])
-
+    //    compile fileTree(include: ['*.jar'], dir: 'libs')
+    //    compile 'com.android.support:support-v4:22.2.0'
     compile 'com.android.support:appcompat-v7:22.2.0'
-    compile 'org.bouncycastle:bcpkix-jdk15on:1.52'
-    compile 'io.netty:netty-all:4.0.30.Final'
-//    compile 'io.netty:netty-all:5.0.0.Alpha2'
-
+    //    compile 'org.bouncycastle:bcprov-jdk15on:1.52'
+    compile 'com.madgag.spongycastle:pkix:1.52.0.0'
+    //    compile 'org.bouncycastle:bcpkix-jdk15on:1.52'
+    //    compile 'io.netty:netty-all:4.0.30.Final'
+    compile files('src/main/libs/netty-handler.jar')
 }

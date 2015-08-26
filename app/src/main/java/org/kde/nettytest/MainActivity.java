@@ -5,7 +5,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
-import android.support.v7.app.ActionBarActivity;
 import android.util.Base64;
 import android.util.Log;
 import android.view.Menu;
@@ -13,20 +12,23 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 
-import org.bouncycastle.asn1.x500.X500NameBuilder;
-import org.bouncycastle.asn1.x500.style.BCStyle;
-import org.bouncycastle.cert.X509v3CertificateBuilder;
-import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
-import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.operator.ContentSigner;
-import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import org.spongycastle.asn1.x500.X500NameBuilder;
+import org.spongycastle.asn1.x500.style.BCStyle;
+import org.spongycastle.cert.X509v3CertificateBuilder;
+import org.spongycastle.cert.jcajce.JcaX509CertificateConverter;
+import org.spongycastle.cert.jcajce.JcaX509v3CertificateBuilder;
+import org.spongycastle.jce.provider.BouncyCastleProvider;
+import org.spongycastle.operator.ContentSigner;
+import org.spongycastle.operator.jcajce.JcaContentSignerBuilder;
 
 import java.math.BigInteger;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.cert.X509Certificate;
 import java.util.Date;
+import java.util.Enumeration;
 
 
 public class MainActivity extends Activity {
@@ -39,6 +41,27 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Enumeration e = NetworkInterface.getNetworkInterfaces();
+                    while(e.hasMoreElements())
+                    {
+                        NetworkInterface n = (NetworkInterface) e.nextElement();
+                        Enumeration ee = n.getInetAddresses();
+                        while (ee.hasMoreElements())
+                        {
+                            InetAddress i = (InetAddress) ee.nextElement();
+                            Log.e("Availaible Address :" , i.getHostAddress());
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
 
         server = (Button) findViewById(R.id.server);
         client = (Button)findViewById(R.id.client);
@@ -64,7 +87,7 @@ public class MainActivity extends Activity {
     private void initializeRsaKeys() {
         SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(this);
 
-        if (!settings.contains("publicKey") || !settings.contains("privateKey")) {
+        if (!settings.contains("publicKey") || !settings.contains("privateKey") || !settings.contains("certificate")) {
 
             KeyPair keyPair;
             try {

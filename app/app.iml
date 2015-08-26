@@ -90,11 +90,12 @@
     </content>
     <orderEntry type="jdk" jdkName="Android API 22 Platform" jdkType="Android SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="library" exported="" name="bcprov-jdk15on-1.52" level="project" />
-    <orderEntry type="library" exported="" name="bcpkix-jdk15on-1.52" level="project" />
+    <orderEntry type="library" exported="" name="pkix-1.52.0.0" level="project" />
+    <orderEntry type="library" exported="" name="core-1.52.0.0" level="project" />
     <orderEntry type="library" exported="" name="support-annotations-22.2.0" level="project" />
     <orderEntry type="library" exported="" name="support-v4-22.2.0" level="project" />
-    <orderEntry type="library" exported="" name="netty-all-4.0.30.Final" level="project" />
+    <orderEntry type="library" exported="" name="prov-1.52.0.0" level="project" />
+    <orderEntry type="library" exported="" name="netty-handler" level="project" />
     <orderEntry type="library" exported="" name="appcompat-v7-22.2.0" level="project" />
   </component>
 </module>

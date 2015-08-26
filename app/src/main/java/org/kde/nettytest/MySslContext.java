@@ -6,15 +6,21 @@ import android.preference.PreferenceManager;
 import android.util.Base64;
 import android.util.Log;
 
-import org.bouncycastle.cert.X509CertificateHolder;
-import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
+//import org.bouncycastle.cert.X509CertificateHolder;
+//import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
+//import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
+import org.spongycastle.cert.X509CertificateHolder;
+import org.spongycastle.cert.jcajce.JcaX509CertificateConverter;
+import org.spongycastle.jce.provider.BouncyCastleProvider;
+
+import java.io.ByteArrayInputStream;
 import java.security.KeyFactory;
 import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.SecureRandom;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.PKCS8EncodedKeySpec;
 
@@ -73,7 +79,7 @@ public class MySslContext {
             KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
             keyManagerFactory.init(keyStore, "".toCharArray());
 
-            SSLContext tlsContext = SSLContext.getInstance("TLSv1.2");
+            SSLContext tlsContext = SSLContext.getInstance("TLS");
             tlsContext.init(keyManagerFactory.getKeyManagers(), trustAllCerts, new SecureRandom());
 //            tlsContext.init(null, null, null);
 //            SslFilter filter = new SslFilter(tlsContext,true);

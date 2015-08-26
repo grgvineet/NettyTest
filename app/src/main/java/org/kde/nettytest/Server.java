@@ -12,6 +12,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.net.InetAddress;
+import java.util.ArrayList;
 
 import javax.net.ssl.SSLEngine;
 
@@ -48,29 +49,26 @@ public class Server extends Activity {
     TextView messageReceived;
 
     ServerThread thread;
-    final static ChannelGroup channels = new DefaultChannelGroup(GlobalEventExecutor.INSTANCE);
+    ArrayList<Channel> channels = new ArrayList<>();
 
     public class ServerHandler extends SimpleChannelInboundHandler<String> {
+
+        @Override
+        public void channelInactive(final ChannelHandlerContext ctx) throws Exception {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(getApplicationContext(), "Connection lost from " + ctx.channel().remoteAddress().toString(), Toast.LENGTH_SHORT).show();
+                }
+            });
+            channels.remove(ctx.channel());
+        }
 
         @Override
         public void channelActive(final ChannelHandlerContext ctx) {
             // Once session is secured, send a greeting and register the channel to the global channel
             // list so the channel received the messages from others.
             Log.e("Server", "Channel handler context name :" + ctx.name());
-            ctx.pipeline().get(SslHandler.class).handshakeFuture().addListener(
-                    new GenericFutureListener<Future<Channel>>() {
-                        @Override
-                        public void operationComplete(Future<Channel> future) throws Exception {
-                            ctx.writeAndFlush(
-                                    "Welcome to " + InetAddress.getLocalHost().getHostName() + " secure chat service!\n");
-                            ctx.writeAndFlush(
-                                    "Your session is protected by " +
-                                            ctx.pipeline().get(SslHandler.class).engine().getSession().getCipherSuite() +
-                                            " cipher suite.\n");
-
-                            channels.add(ctx.channel());
-                        }
-                    });
 
             runOnUiThread(new Runnable() {
                 @Override
@@ -78,6 +76,8 @@ public class Server extends Activity {
                     Toast.makeText(getApplicationContext(), ctx.channel().remoteAddress().toString(), Toast.LENGTH_SHORT).show();
                 }
             });
+
+            channels.add(ctx.channel());
         }
 
 
@@ -105,27 +105,12 @@ public class Server extends Activity {
 
     public class ServerInitializer extends ChannelInitializer<SocketChannel> {
 
-        private final SSLEngine sslEngine;
-
-        public ServerInitializer(SSLEngine sslEngine) {
-            this.sslEngine = sslEngine;
-        }
-
         @Override
         public void initChannel(SocketChannel ch) throws Exception {
             ChannelPipeline pipeline = ch.pipeline();
 
-            // Add SSL handler first to encrypt and decrypt everything.
-            // In this example, we use a bogus certificate in the server side
-            // and accept any invalid certificates in the client side.
-            // You will need something more complicated to identify both
-            // and server in the real world.
-
-//            pipeline.addLast(sslCtx.newHandler(ch.alloc()));
-            pipeline.addLast(new SslHandler(sslEngine));
-
             // On top of the SSL handler, add the text line codec.
-            pipeline.addLast(new DelimiterBasedFrameDecoder(8192, Delimiters.lineDelimiter()));
+            pipeline.addLast(new DelimiterBasedFrameDecoder(65 * 1024, Delimiters.lineDelimiter()));
             pipeline.addLast(new StringDecoder());
             pipeline.addLast(new StringEncoder());
 
@@ -153,10 +138,7 @@ public class Server extends Activity {
                         .childHandler(new ChannelInitializer<SocketChannel>() { // (4)
                             @Override
                             public void initChannel(SocketChannel ch) throws Exception {
-                                final SSLEngine sslEngine = MySslContext.getSslContext(getApplicationContext(), false).createSSLEngine();
-
-                                sslEngine.setUseClientMode(false);
-                                ch.pipeline().addLast(new ServerInitializer(sslEngine));
+                                ch.pipeline().addLast(new ServerInitializer());
                             }
                         })
                         .option(ChannelOption.SO_BACKLOG, 128)          // (5)
@@ -238,7 +220,7 @@ public class Server extends Activity {
                     @Override
                     public void run() {
                         for (Channel c : channels){
-                            c.writeAndFlush(textToSend.getText().toString() + "\r\n");
+                            c.writeAndFlush(textToSend.getText().toString() + "\n");
                         }
                     }
                 }).start();

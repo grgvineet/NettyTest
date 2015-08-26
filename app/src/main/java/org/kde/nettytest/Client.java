@@ -11,6 +11,8 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import javax.net.ssl.SSLEngine;
+
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
@@ -25,6 +27,7 @@ import io.netty.handler.codec.Delimiters;
 import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
 import io.netty.handler.ssl.JdkSslClientContext;
+import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 
 
@@ -111,12 +114,12 @@ public class Client extends Activity {
         }
 
         @Override
-        protected void channelRead0(ChannelHandlerContext ctx, final String msg) throws Exception {
+        protected void channelRead0(final ChannelHandlerContext ctx, final String msg) throws Exception {
             Log.e("Client Handler", "Channel read");
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    messageReceived.setText(msg);
+                    messageReceived.setText(ctx.channel().remoteAddress() + " : " + msg);
                 }
             });
         }
@@ -135,9 +138,6 @@ public class Client extends Activity {
         @Override
         public void initChannel(Channel ch) throws Exception {
             ChannelPipeline pipeline = ch.pipeline();
-
-            JdkSslClientContext sslContext = new JdkSslClientContext(InsecureTrustManagerFactory.INSTANCE);
-            pipeline.addLast(sslContext.newHandler(ch.alloc(), host, port));
 
             pipeline.addLast(new DelimiterBasedFrameDecoder(65 * 1024, Delimiters.lineDelimiter()));
             pipeline.addLast(new StringDecoder());
@@ -201,7 +201,7 @@ public class Client extends Activity {
             public void onClick(View view) {
                 if (channel != null) {
                     Log.e("Client", "Writing  : " + textToSend.getText().toString());
-                    channel.writeAndFlush(textToSend.getText().toString() + "\r\n");
+                    channel.writeAndFlush(textToSend.getText().toString() + "\n");
                 }
             }
         });
